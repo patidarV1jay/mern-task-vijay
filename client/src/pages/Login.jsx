@@ -19,6 +19,7 @@ export default function Login() {
     setError("");
     setSubmitting(true);
     try {
+      console.log("form", form);
       await login(form);
       navigate("/app");
     } catch (err) {

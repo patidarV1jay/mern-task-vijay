@@ -6,7 +6,7 @@ import {
   refresh,
   register,
 } from "../controllers/authController.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth , requireRole} from "../middleware/auth.js";
 import { asyncHandler } from "../utils/errors.js";
 
 const router = Router();

@@ -89,10 +89,10 @@ export async function register(req, res) {
             tenantId: createdTenant._id,
             fullName,
             email,
-            passwordHash,
+            passwordHash, 
             role: "owner",
           },
-        ],
+        ], 
         { session }
       );
 
@@ -144,6 +144,7 @@ export async function login(req, res) {
   }
 
   const payload = await issueAuth(res, user);
+  console.log(payload,'this is payload')
   res.json({ message: "Logged in", ...payload });
 }
 

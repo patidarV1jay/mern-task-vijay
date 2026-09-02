@@ -1,19 +1,23 @@
 services:
-  mongo:
-    image: mongo:7
-    command: ["--replSet", "rs0", "--bind_ip_all"]
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
     ports:
-      - "27017:27017"
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      DEBUG: "1"
+      AWS_DEFAULT_REGION: ap-south-1
+      LOCALSTACK_AUTH_TOKEN: ls-lAyaBuZE-GIBE-7884-8487-SUYuYEwe9fdd
     volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: >
-        mongosh --quiet --eval
-        "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"
-      interval: 5s
-      timeout: 10s
-      retries: 20
-      start_period: 10s
+      - localstack_data:/var/lib/localstack
+  
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
 
 volumes:
-  mongo-data:
+  localstack_data:
+  redis_data:

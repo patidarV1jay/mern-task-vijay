@@ -10,10 +10,12 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false);
 
   function applyAuth(data) {
-    setAccessToken(data.accessToken);
-    setUser(data.user || null);
-    if (data.tenant) {
-      setTenant(data.tenant);
+    setAccessToken(data.data.accessToken);
+    localStorage.setItem("accessToken", data.data.accessToken);
+    setUser(data.data.user || null);
+    if (data.data.user) {
+      localStorage.setItem("tenantId", data.data.user.tenantId);
+      setTenant(data.data.user.tenantId);
     }
   }
 
@@ -27,10 +29,10 @@ export function AuthProvider({ children }) {
         applyAuth(data);
         try {
           const me = await authApi.me(data.accessToken);
-          if (!cancelled) {
+          if (!cancelled) { 
             setUser(me.user);
             setTenant(me.tenant);
-          }
+          } 
         } catch {
           /* access token is enough to enter the app */
         }
@@ -57,12 +59,14 @@ export function AuthProvider({ children }) {
       tenant,
       ready,
       async register(payload) {
+        console.log("register", payload);
         const data = await authApi.register(payload);
         applyAuth(data);
         return data;
       },
       async login(payload) {
         const data = await authApi.login(payload);
+        console.log("login", data);
         applyAuth(data);
         return data;
       },

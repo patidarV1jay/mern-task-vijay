@@ -16,7 +16,21 @@ export function createAccessToken(user) {
       email: user.email,
     },
     env.jwtAccessSecret,
-    { expiresIn: env.accessTokenTtl }
+    // { expiresIn: env.accessTokenTtl }
+    {expiresIn: '1d'}
+  );
+}
+
+export function generateInviteToken(payload) {
+  return jwt.sign(
+    {
+      ...payload,
+      type: "user-invite",
+    },
+    env.jwtAccessSecret,
+    {
+      expiresIn: "24h",
+    }
   );
 }
 

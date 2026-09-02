@@ -1,34 +1,115 @@
-async function parseJson(res) {
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.message || "Request failed");
-  }
-  return data;
-}
+import axios from "axios";
 
-export async function request(path, { method = "GET", body, token } = {}) {
-  const headers = {};
-  if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
-  }
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+const api = axios.create({
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000/api/v1",
+  withCredentials: true,
+});
 
-  const res = await fetch(path, {
-    method,
-    headers,
-    credentials: "include",
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+api.interceptors.request.use(
+  (config) => {
+    const accessToken = localStorage.getItem("accessToken");
+    const tenantId = localStorage.getItem("tenantId");
+
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    if (tenantId) {
+      config.headers["X-Tenant-ID"] = tenantId;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+let refreshing = false;
+let waitQueue = [];
+
+const flushQueue = (error, token = null) => {
+  waitQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
   });
 
-  return parseJson(res);
-}
+  waitQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      originalRequest._retry ||
+      originalRequest.url?.includes("/auth/refresh")
+    ) {
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+
+    if (refreshing) {
+      return new Promise((resolve, reject) => {
+        waitQueue.push({ resolve, reject });
+      }).then((token) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return api(originalRequest);
+      });
+    }
+
+    refreshing = true;
+
+    try {
+      const { data } = await api.post("/auth/refresh");
+
+      const newAccessToken = data.accessToken;
+
+      localStorage.setItem("accessToken", newAccessToken);
+
+      flushQueue(null, newAccessToken);
+
+      originalRequest.headers.Authorization =
+        `Bearer ${newAccessToken}`;
+
+      return api(originalRequest);
+    } catch (refreshError) {
+      flushQueue(refreshError);
+
+      localStorage.removeItem("accessToken");
+
+      window.location.href = "/login";
+
+      return Promise.reject(refreshError);
+    } finally {
+      refreshing = false;
+    }
+  }
+);
 
 export const authApi = {
-  register: (payload) => request("/auth/register", { method: "POST", body: payload }),
-  login: (payload) => request("/auth/login", { method: "POST", body: payload }),
-  refresh: () => request("/auth/refresh", { method: "POST" }),
-  logout: () => request("/auth/logout", { method: "POST" }),
-  me: (token) => request("/auth/me", { token }),
+  register: (payload) =>
+    api.post("/auth/register", payload),
+
+  login: (payload) =>
+    api.post("/auth/login", payload),
+
+  refresh: () =>
+    api.post("/auth/refresh"),
+
+  logout: () =>
+    api.post("/auth/logout"),
+
+  me: () =>
+    api.get("/auth/me"),
 };
+
+export default api;
